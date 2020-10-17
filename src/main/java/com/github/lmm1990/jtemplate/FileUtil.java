@@ -6,7 +6,6 @@ public class FileUtil {
 
     /**
      * 读取文件所有内容
-     * @author 刘明明
      *
      * @param inputStream 文件流
      * @return String 文件内容
