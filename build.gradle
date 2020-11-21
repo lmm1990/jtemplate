@@ -36,6 +36,12 @@ javadoc {
 tasks.withType(JavaCompile) {
     options.encoding = "UTF-8"
 }
+if(!System.getProperty("os.name").toLowerCase().startsWith("win")){
+    project.ext {
+        ossrhUsername = "userName"
+        ossrhPassword = "pwd"
+    }
+}
 allprojects {
     // Signature of artifacts
     signing {
