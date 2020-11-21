@@ -10,11 +10,13 @@ public class TemplateUtil {
 
     private List<INode> baseAstNodeList = new ArrayList<>();
     private List<INode> astNodeList;
+    private TemplateToken templateToken;
 
     /**
      * 编译模板
      */
     public TemplateUtil(String sourceCode) {
+        templateToken = new TemplateToken();
         astNodeList = parse(sourceCode);
     }
 
@@ -27,7 +29,7 @@ public class TemplateUtil {
         String[] rowList = sourceCode.replaceAll("\r\n", "\n").split("\n");
         List<ParserContext> parserContextList = new ArrayList<>(rowList.length);
         for (int i = 0, length = rowList.length; i < length; i++) {
-            rowList[i] = rowList[i].trim();
+            rowList[i] = rowList[i];
             parserContextList.add(new ParserContext(String.format("%s\n", rowList[i]), i + 1, 0, 0));
         }
         return parserContextList;
@@ -76,7 +78,7 @@ public class TemplateUtil {
     private List<INode> transform(List<INode> astNodeList) {
         INode baseCurrentNode;
         TextNode prevNode, currentNode = null;
-        for (int i = 1, length = astNodeList.size(); i < length; i++) {
+        for (int i = 0, length = astNodeList.size(); i < length; i++) {
             baseCurrentNode = astNodeList.get(i);
             if (baseCurrentNode instanceof ChildrenNode) {
                 transform(((ChildrenNode) baseCurrentNode).getChildrenList());
@@ -90,14 +92,21 @@ public class TemplateUtil {
             }
             if (NodeType.TEXT == baseCurrentNode.getNodeType()) {
                 currentNode = (TextNode) astNodeList.get(i);
-                if (currentNode.getContent().equals("\n")) {
-                    astNodeList.remove(i);
-                    i--;
-                    length--;
-                    continue;
+                if(currentNode.getContent().indexOf('\\')>-1){
+                    //处理文本转义
+                    StringBuilder txt = new StringBuilder();
+                    for (int j = 0,len = currentNode.getContent().length(); j < len; j++) {
+                        if(currentNode.getContent().charAt(j)!='\\'){
+                            txt.append(currentNode.getContent().charAt(j));
+                        }else if(currentNode.getContent().charAt(j+1)=='\\'){
+                            txt.append('\\');
+                            j++;
+                        }
+                    }
+                    currentNode.setContent(txt.toString());
                 }
             }
-            if (astNodeList.get(i - 1).getNodeType() == NodeType.TEXT &&
+            if (i>0 && astNodeList.get(i - 1).getNodeType() == NodeType.TEXT &&
                     NodeType.TEXT == baseCurrentNode.getNodeType()) {
                 prevNode = (TextNode) astNodeList.get(i - 1);
                 prevNode.setContent(String.format("%s%s", prevNode.getContent(), currentNode.getContent()));
@@ -114,7 +123,7 @@ public class TemplateUtil {
      */
     private ParserContext parseTemplate(ParserContext parserContext, List<INode> astNodeList) {
         String content = parserContext.getSource().substring(parserContext.getOffset());
-        int column = content.indexOf(TemplateToken.TAG_START.getValue());
+        int column = getTemplateTagIndex(templateToken.getTagStart(),content);
         //解析文本节点
         if (column == -1) {
             ParserContext tempContext = new ParserContext(parserContext);
@@ -129,12 +138,12 @@ public class TemplateUtil {
             tempContext.setOffset(column);
             return parseText(tempContext, astNodeList);
         }
-        column += TemplateToken.TAG_START.getValue().length();
+        column += templateToken.getTagStartLength();
         content = parserContext.getSource().substring(column);
-        int offset = content.indexOf(TemplateToken.TAG_END.getValue());
+        int offset = getTemplateTagIndex(templateToken.getTagEnd(),content);
         if (offset == -1) {
             throw new TemplateSyntaxException(String.format("语法错误，缺少：%s，行：%d，列：%d",
-                    TemplateToken.TAG_END.getValue(), parserContext.getLine(), offset));
+                    templateToken.getTagEnd(), parserContext.getLine(), offset));
         }
         offset += column;
         content = parserContext.getSource().substring(column, offset);
@@ -180,6 +189,20 @@ public class TemplateUtil {
     }
 
     /**
+     * 获得模板下标
+     *
+     * @param tag 模板语法
+     * @param content 源码
+     * */
+    private int getTemplateTagIndex(String tag,String content){
+        int index = content.indexOf(tag);
+        if(index>0 && content.charAt(index-1)=='\\'){
+            index+=1;
+        }
+        return index;
+    }
+
+    /**
      * 获得节点环境下标
      */
     private INode getEnvNode() {
@@ -217,12 +240,12 @@ public class TemplateUtil {
         int offset = parserContext.getOffset();
         ParserContext context = new ParserContext(parserContext);
         //检查each开头关闭标签
-        int index = sourceCode.indexOf(TemplateToken.TAG_END.getValue());
+        int index = getTemplateTagIndex(templateToken.getTagEnd(),sourceCode);
         if (index == -1) {
             throw new TemplateSyntaxException(String.format("语法错误，缺少：%s，行：%d，列：%d",
-                    TemplateToken.TAG_END.getValue(), parserContext.getLine(), parserContext.getOffset()));
+                    templateToken.getTagEnd(), parserContext.getLine(), parserContext.getOffset()));
         }
-        offset += index + TemplateToken.TAG_END.getValue().length();
+        offset += index + templateToken.getTagEndLength();
         context.setOffset(offset);
         if (NodeType.END_EACH_TAG.getName().equals(lexicalList[0])) {
             astNodeList.add(new EndNode());
@@ -248,12 +271,12 @@ public class TemplateUtil {
         int offset = parserContext.getOffset();
         ParserContext context = new ParserContext(parserContext);
         //检查if开头关闭标签
-        int index = sourceCode.indexOf(TemplateToken.TAG_END.getValue());
+        int index = getTemplateTagIndex(templateToken.getTagEnd(),sourceCode);
         if (index == -1) {
             throw new TemplateSyntaxException(String.format("语法错误，缺少：%s，行：%d，列：%d",
-                    TemplateToken.TAG_END.getValue(), parserContext.getLine(), parserContext.getOffset()));
+                    templateToken.getTagEnd(), parserContext.getLine(), parserContext.getOffset()));
         }
-        offset += index + TemplateToken.TAG_END.getValue().length();
+        offset += index + templateToken.getTagEndLength();
         context.setOffset(offset);
         switch (IfNodeToken.of(lexicalList[0])) {
             case IF_TYPE:
@@ -304,7 +327,7 @@ public class TemplateUtil {
         INode node = new VariableNode(variable, parserContext);
         addNode(node, astNodeList);
         ParserContext context = new ParserContext(parserContext);
-        context.setOffset(parserContext.getOffset() + TemplateToken.TAG_END.getValue().length());
+        context.setOffset(parserContext.getOffset() + templateToken.getTagEndLength());
         return context;
     }
 
@@ -372,6 +395,7 @@ public class TemplateUtil {
     /**
      * 编译each
      */
+    @SuppressWarnings("unchecked")
     private String buildEach(Map<String, Object> data, EachNode node) {
         StringBuilder result = new StringBuilder();
         Object baseEachData = data.get(node.getListKey());

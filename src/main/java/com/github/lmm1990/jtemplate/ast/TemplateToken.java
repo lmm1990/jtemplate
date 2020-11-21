@@ -1,22 +1,50 @@
 package com.github.lmm1990.jtemplate.ast;
 
-public enum TemplateToken {
-    //模板语法开始
-    TAG_START("{{"),
-    //模板语法结束
-    TAG_END("}}");
+public class TemplateToken {
 
-    private String value;
+    /**
+     * 模板开始语法
+     * */
+    private String tagStart = "{{";
 
-    TemplateToken(String name) {
-        this.value = name;
+    /**
+     * 模板结束语法
+     * */
+    private String tagEnd = "}}";
+
+    /**
+     * 模板开始语法长度
+     * */
+    private int tagStartLength = tagStart.length();
+
+    /**
+     * 模板结束语法长度
+     * */
+    private int tagEndLength = tagEnd.length();
+
+    public String getTagStart() {
+        return tagStart;
     }
 
-    public String getValue() {
-        return value;
+    public void setTagStart(String tagStart) {
+        this.tagStart = tagStart;
+        this.tagStartLength = tagStart.length();
     }
 
-    public void setValue(String value) {
-        this.value = value;
+    public String getTagEnd() {
+        return tagEnd;
+    }
+
+    public void setTagEnd(String tagEnd) {
+        this.tagEnd = tagEnd;
+        this.tagEndLength = tagEnd.length();
+    }
+
+    public int getTagStartLength() {
+        return tagStartLength;
+    }
+
+    public int getTagEndLength() {
+        return tagEndLength;
     }
 }
