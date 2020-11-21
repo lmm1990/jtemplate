@@ -32,9 +32,10 @@ jobs:
             - v1-dependencies-
             -
       - run:
-          - echo ossrhUsername=userName > gradle.properties
-          - echo ossrhPassword=pwd > gradle.properties
-          - gradle dependencies
+          command: |
+              echo ossrhUsername=userName > gradle.properties
+              echo ossrhPassword=pwd > gradle.properties
+              gradle dependencies
 
       - save_cache:
           paths:
